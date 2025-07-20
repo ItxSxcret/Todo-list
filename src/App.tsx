@@ -1,106 +1,100 @@
 import { useRef, useState } from 'react'
 import { faMagnifyingGlass, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import axios from 'axios';
+import { useEffect } from 'react';
 function App() {
 
+
+
   interface Todo {
-    id: number;
+    idTask?: number;
     title: string;
     description: string;
     isDone: boolean;
   }
 
-  const [todos, setTodos] = useState<Todo[]>([
-    { id: 1, title: 'Learn React', description: 'Study the basics of React', isDone: false },
-    { id: 2, title: 'Build a Todo App', description: 'Create a simple Todo application', isDone: false },
-    { id: 3, title: 'Deploy the App', description: 'Deploy the Todo app to a hosting service', isDone: false }
-  ]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const todoTitleRef = useRef<HTMLInputElement>(null);
   const todoDescRef = useRef<HTMLInputElement>(null);
   const todoStatusRef = useRef<HTMLSelectElement>(null);
   const [show, setshow] = useState<boolean>(false)
-  const [editId, setEditId] = useState<number | null>(null); // สำหรับบอกว่ากำลังแก้ Todo ตัวไหน
+  const [editId, setEditId] = useState<number | null>(null);
 
+  const baseUrl = 'http://localhost:3000';
+  useEffect(() => {
+    const fetchTodos = async () => {
+      try {
+        const response = await axios.get<Todo[]>(`${baseUrl}/todos`);
+        console.log('Fetched todos:', response.data);
+        setTodos(response.data);
+      } catch (error) {
+        console.error('Error fetching todos:', error);
+      }
+    };
+
+    fetchTodos();
+  }, []);
   function Toggleshow() {
     setshow(!show)
   }
-  const handleDelete = (id: number) => {
-    const newTodos = todos.filter(todo => todo.id !== id);
-    setTodos(newTodos);
-  };
-  const handleEdit = (id: number) => {
-    const todoToEdit = todos.find(todo => todo.id === id);
-    if (!todoToEdit) return;
 
-    // ใส่ข้อมูลลง input
-    if (todoTitleRef.current) todoTitleRef.current.value = todoToEdit.title;
-    if (todoDescRef.current) todoDescRef.current.value = todoToEdit.description;
-    if (todoStatusRef.current) todoStatusRef.current.value = todoToEdit.isDone ? 'done' : 'pending';
-
-    setEditId(id);  // กำหนดว่ากำลังแก้ตัวนี้
-    setshow(true);  // เปิด modal
-  };
-
-  function vadidateInput() {
-    const title = todoTitleRef.current?.value.trim();
-    const description = todoDescRef.current?.value.trim();
-    const status = todoStatusRef.current?.value.trim();
-
-    if (title && description && status) {
+  function vadidateInputs() {
+    if (!todoTitleRef.current?.value || !todoDescRef.current?.value || !todoStatusRef.current?.value) {
+      alert('Please fill in all fields');
       return true;
-    } else {
-      return false;
     }
+    return false;
   }
 
-  const handleAdd = () => {
-    if (!vadidateInput()) {
-      alert('Please fill in all fields');
-      return;
-    }
 
-    const title = todoTitleRef.current?.value || '';
-    const description = todoDescRef.current?.value || '';
-    const status = todoStatusRef.current?.value || 'pending';
 
-    if (editId !== null) {
-      // 🟨 แก้ไข Todo
-      const updatedTodos = todos.map(todo =>
-        todo.id === editId
-          ? { ...todo, title, description, isDone: status === 'done' }
-          : todo
-      );
-      setTodos(updatedTodos);
-      setEditId(null); // reset โหมดแก้ไข
-    } else {
-      // 🟩 เพิ่ม Todo
-      const newTodo: Todo = {
-        id: todos.length > 0 ? todos[todos.length - 1].id + 1 : 1,
-        title,
-        description,
-        isDone: status === 'done'
+  const addTodo = async () => {
+    if (vadidateInputs()) return;
+
+    const newTodo: Todo = {
+      title: todoTitleRef.current!.value,
+      description: todoDescRef.current!.value,
+      isDone: todoStatusRef.current!.value === 'done',
+    };
+
+    try {
+      const response = await axios.post<{ message: string; todo: Todo }>(`${baseUrl}/todo`, newTodo);
+
+      console.log('Todo added:', response.data);
+      // บังคับให้ใช้ข้อมูลที่เรารู้ว่าถูกต้อง
+      const todoToAdd: Todo = {
+        idTask: response.data.todo.idTask,
+        title: response.data.todo.title,
+        description: response.data.todo.description,
+        isDone: !!response.data.todo.isDone, // แปลง 1/0 → true/false
       };
-      setTodos([...todos, newTodo]);
+      setTodos(prev => [...prev, todoToAdd]);
+      Toggleshow();
+      // ล้าง input
+    } catch (error) {
+      console.error('Error:', error);
     }
-
-    // ล้าง input
-    if (todoTitleRef.current) todoTitleRef.current.value = '';
-    if (todoDescRef.current) todoDescRef.current.value = '';
-    if (todoStatusRef.current) todoStatusRef.current.value = 'pending';
-    setshow(false);
   };
+
+  const deleteTodo = async (id: number) => {
+    try {
+      await axios.delete(`${baseUrl}/todo/${id}`);
+      setTodos(prev => prev.filter(todo => todo.idTask !== id));
+      console.log(`Todo with id ${id} deleted`);
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    }
+  };
+
 
 
   return (
     <>
-      <div className='bg-[#2E236C] w-[80vw] h-[80vh] rounded'>
+      <div className='bg-[#2E236C] w-[80vw] h-[80vh] rounded '>
         <nav className='w-full pl-10 pr-10 h-20 flex items-center justify-between shadow-sm rounded-t bg-[#433D8B]'>
           <span className='text-white font-bold text-2xl'>Todo-List</span>
           <div className='flex items-center justify-between gap-6'>
-            <div className='flex items-center justify-center gap-3'>
-              <input type="text" className={`outline-none bg-transparent text-white border-b-2 border-white pl-4 transition-all duration-300`} />
-              <FontAwesomeIcon icon={faMagnifyingGlass} className='text-white text-xl duration-300 hover:cursor-pointer hover:scale-125' />
-            </div>
             <FontAwesomeIcon icon={faPlus} onClick={Toggleshow} className='text-white text-xl duration-300 hover:scale-125 hover:cursor-pointer' />
           </div>
         </nav>
@@ -116,15 +110,14 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {todos.map((todo) => (
-              <tr key={todo.id} className='h-10 bg-[#C8ACD6]'>
-                <td className='border border-gray-300 px-4 py-2'>{todo.id}</td>
+            {todos.map((todo, index) => (
+              <tr key={index} className='h-10 bg-[#C8ACD6]'>
+                <td className='border border-gray-300 px-4 py-2'>{todo.idTask}</td>
                 <td className='border border-gray-300 px-4 py-2'>{todo.title}</td>
                 <td className='border border-gray-300 px-4 py-2'>{todo.description}</td>
                 <td className='border border-gray-300 px-4 py-2'>{todo.isDone ? 'Done' : 'Pending'}</td>
                 <td className='border border-gray-300 px-4 py-2 text-center'>
-                  <button onClick={() => handleEdit(todo.id)} className='text-black bg-yellow-400 w-10 font-bold duration-300 rounded hover:bg-yellow-500 hover:cursor-pointer hover:text-white'>Edit</button>
-                  <button onClick={() => handleDelete(todo.id)} className='text-black bg-red-400 ml-2 w-15 font-bold rounded duration-300 hover:bg-red-500 hover:cursor-pointer hover:text-white'>Delete</button>
+                  <button onClick={() => deleteTodo(todo.idTask! || 0)} className='text-black bg-red-400 ml-2 w-15 font-bold rounded duration-300 hover:bg-red-500 hover:cursor-pointer hover:text-white'>Delete</button>
                 </td>
               </tr>
             ))}
@@ -158,8 +151,8 @@ function App() {
               </select>
 
               <div className='w-full flex justify-end items-center'>
-                <button onClick={handleAdd} className='text-black bg-blue-400 w-20 h-9 font-bold duration-300 rounded hover:bg-blue-500 hover:cursor-pointer hover:text-white'>
-                  {editId !== null ? 'Update' : 'Add'}
+                <button onClick={addTodo} className='text-black bg-blue-400 w-20 h-9 font-bold duration-300 rounded hover:bg-blue-500 hover:cursor-pointer hover:text-white'>
+                  ADD
                 </button>
                 <button onClick={Toggleshow} className='text-black bg-red-400 ml-2 w-20 h-9 font-bold rounded duration-300 hover:bg-red-500 hover:cursor-pointer hover:text-white'>Cancel</button>
               </div>
