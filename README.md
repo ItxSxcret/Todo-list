@@ -2,5 +2,5 @@
 
 Tool🔨
 -Frontend [React + typescript + axios]
--Backend [node.js + typescript + express + mysql]
+-Backend [node.js + typescript + express + mysql + XAMPP]
 -Library [Icon[Fontawesome]]
